@@ -1,0 +1,62 @@
+cabal-version: 3.14
+name: blackjack
+version: 0.1.0.0
+synopsis: BlackJack
+-- description:
+license: BSD-3-Clause
+license-file: LICENSE
+author: Loki
+maintainer: 238637703+TiredSalariedman@users.noreply.github.com
+-- copyright:
+category: Game
+build-type: Simple
+extra-doc-files: CHANGELOG.md
+
+-- extra-source-files:
+common depends
+  build-depends:
+    base ^>=4.20.2.0,
+    bytestring,
+    mtl,
+    random,
+    text
+
+common options
+  ghc-options:
+    -Wall
+    -O2
+    -funbox-strict-fields
+    -fno-warn-type-defaults
+
+common extensions
+  default-extensions:
+    InstanceSigs
+    OverloadedRecordDot
+    OverloadedStrings
+    StrictData
+    ViewPatterns
+
+library
+  import: depends, options, extensions
+  exposed-modules:
+    Cards
+    Game
+    IOFloor
+
+  -- other-modules:
+  -- other-extensions:
+  build-depends: base ^>=4.20.2.0
+  hs-source-dirs: src
+  default-language: GHC2024
+
+executable blackjack
+  import: depends, options, extensions
+  main-is: Main.hs
+  -- other-modules:
+  -- other-extensions:
+  build-depends:
+    base ^>=4.20.2.0,
+    blackjack
+
+  hs-source-dirs: app
+  default-language: GHC2024
