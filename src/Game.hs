@@ -26,6 +26,7 @@ import Control.Monad.State.Strict
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
 import IOFloor (getPlayerBet, shuffleDeck)
+import System.Exit (exitSuccess)
 
 type Game = ReaderT GameSettings (StateT GameState IO)
 
@@ -35,7 +36,7 @@ defailtSettings = GameSettings {minBet = 10, maxBet = 100}
 initialState :: GameState
 initialState =
   GameState
-    { player = Player {pHand = [], pBet = 0, pMoney = 1000},
+    { player = Player {pHand = [], pBet = 0, pMoney = 100},
       dealer = Dealer {dHand = []},
       deck = fullDeck
     }
@@ -43,7 +44,7 @@ initialState =
 gameCycle :: Game ()
 gameCycle = do
   emptyLine
-  liftIO $ TIO.putStrLn "========== ♠ ♣ ♦ ♥ =========="
+  printInMT "========== ♠ ♣ ♦ ♥ =========="
   emptyLine
   playerBetAction
   emptyLine
@@ -79,7 +80,10 @@ playerBetAction :: Game ()
 playerBetAction = do
   GameSettings {minBet, maxBet} <- ask
   bet <- liftIO $ getPlayerBet minBet maxBet
-  currPlayer <- gets player
+  currPlayer@Player {pMoney} <- gets player
+  when (pMoney < minBet) $ do
+    printInMT "У вас не достаточно денег для Ставки!"
+    liftIO $ exitSuccess
 
   let updatePlayer = makeBet bet currPlayer
 
@@ -103,18 +107,6 @@ dealCardsToDealer nCard = do
 
   modify' (\gameState -> gameState {dealer = updateDealer, deck = newDeck})
 
-showDealerHand :: Game ()
-showDealerHand = showState dealer
-
-showState :: (MonadState s m, MonadIO m, Show a) => (s -> a) -> m ()
-showState field = do
-  currField <- gets field
-  emptyLine
-  liftIO $ printText currField
-  emptyLine
-  where
-    printText = TIO.putStrLn . T.show
-
 dealerAction :: Int -> Game ()
 dealerAction playerValue = do
   Dealer {dHand} <- gets dealer
@@ -133,7 +125,7 @@ dealerEndGame :: Int -> Int -> Game ()
 dealerEndGame dealerValue playerValue = do
   showDealerHand
 
-  liftIO $ TIO.putStrLn $ "У Дилера было " <> T.show dealerValue <> " очка/ов"
+  printInMT $ "У Дилера было " <> T.show dealerValue <> " очка/ов"
   curr@Player {pBet} <- gets player
 
   let (message, reward) =
@@ -165,12 +157,12 @@ playerAction = do
             else playerAction
     "P" -> do
       showState player
-      liftIO $ TIO.putStrLn "Вы пропустили раунд."
+      printInMT "Вы пропустили раунд."
       Player {pHand} <- gets player
       let newValue = handValue pHand
       dealerAction newValue
     _ -> do
-      liftIO $ TIO.putStrLn "ОШИБКА: Ввод должен содержать букву V или P. Пожалуйста, введи команду снова."
+      printInMT "ОШИБКА: Ввод должен содержать букву V или P. Пожалуйста, введи команду снова."
       playerAction
 
 finishRound :: T.Text -> Int -> Player -> Game ()
@@ -178,11 +170,26 @@ finishRound
   message
   amount
   currPlayer = do
-    liftIO $ TIO.putStrLn message
+    printInMT message
     let updatePlayer = payout amount currPlayer
     modify' (\gameState -> gameState {player = updatePlayer})
 
     showState player
 
+showDealerHand :: Game ()
+showDealerHand = showState dealer
+
+showState :: (MonadState s m, MonadIO m, Show a) => (s -> a) -> m ()
+showState field = do
+  currField <- gets field
+  emptyLine
+  liftIO $ printText currField
+  emptyLine
+  where
+    printText = TIO.putStrLn . T.show
+
 emptyLine :: (MonadState s m, MonadIO m) => m ()
-emptyLine = liftIO $ TIO.putStrLn ""
+emptyLine = printInMT ""
+
+printInMT :: (MonadIO m) => T.Text -> m ()
+printInMT text = liftIO $ TIO.putStrLn text
